@@ -15,6 +15,10 @@ async function startServer() {
     await sequelize.authenticate();
     console.log('Base de datos PostgreSQL conectada correctamente');
 
+    // Sincronizar los modelos con la base de datos
+    await sequelize.sync({ alter: true });
+    console.log('Modelos de la base de datos sincronizados correctamente');
+
     // 2. Si la conexión es exitosa, iniciar el servidor Express para escuchar peticiones
     app.listen(PORT, () => {
       console.log(`Servidor ejecutándose en http://localhost:${PORT}`);
