@@ -1,4 +1,5 @@
 const generoService = require('../services/generoService');
+const Media = require('../models/media');
 
 // Obtener todos los géneros
 const listar = async (req, res) => {
@@ -97,6 +98,15 @@ const eliminar = async (req, res) => {
     const { id } = req.params;
 
     try {
+        // Verificar si existen producciones asociadas a este género antes de eliminar
+        const asociados = await Media.count({ where: { genero_id: id } });
+        if (asociados > 0) {
+            return res.status(409).json({
+                success: false,
+                message: `No es posible eliminar este género porque está asociado a ${asociados} producción(es) multimedia. Debes reasignar o eliminar esas producciones primero.`
+            });
+        }
+
         const eliminado = await generoService.eliminarGenero(id);
 
         if (!eliminado) {
@@ -111,6 +121,13 @@ const eliminar = async (req, res) => {
             message: 'Género eliminado de la base de datos correctamente'
         });
     } catch (error) {
+        if (error.name === 'SequelizeForeignKeyConstraintError') {
+            return res.status(409).json({
+                success: false,
+                message: 'No es posible eliminar este género porque está referenciado por producciones multimedia existentes.',
+                error: error.message
+            });
+        }
         console.error('Error al eliminar género:', error);
         res.status(500).json({
             success: false,

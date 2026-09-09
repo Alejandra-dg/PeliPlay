@@ -1,4 +1,5 @@
 const tipoService = require('../services/tipoService');
+const Media = require('../models/media');
 
 const listar = async (req, res) => {
     try {
@@ -93,6 +94,15 @@ const eliminar = async (req, res) => {
     const { id } = req.params;
 
     try {
+        // Verificar si existen producciones asociadas a este tipo antes de eliminar
+        const asociados = await Media.count({ where: { tipo_id: id } });
+        if (asociados > 0) {
+            return res.status(409).json({
+                success: false,
+                message: `No es posible eliminar este tipo porque está asociado a ${asociados} producción(es) multimedia. Debes reasignar o eliminar esas producciones primero.`
+            });
+        }
+
         const eliminado = await tipoService.eliminarTipo(id);
 
         if (!eliminado) {
@@ -107,6 +117,13 @@ const eliminar = async (req, res) => {
             message: 'Tipo eliminado de la base de datos correctamente'
         });
     } catch (error) {
+        if (error.name === 'SequelizeForeignKeyConstraintError') {
+            return res.status(409).json({
+                success: false,
+                message: 'No es posible eliminar este tipo porque está referenciado por producciones multimedia existentes.',
+                error: error.message
+            });
+        }
         console.error('Error al eliminar tipo:', error);
         res.status(500).json({
             success: false,

@@ -1,4 +1,5 @@
 const productoraService = require('../services/productoraService');
+const Media = require('../models/media');
 
 const listar = async (req, res) => {
     try {
@@ -93,6 +94,15 @@ const eliminar = async (req, res) => {
     const { id } = req.params;
 
     try {
+        // Verificar si existen producciones asociadas a esta productora antes de eliminar
+        const asociados = await Media.count({ where: { productora_id: id } });
+        if (asociados > 0) {
+            return res.status(409).json({
+                success: false,
+                message: `No es posible eliminar esta productora porque está asociada a ${asociados} producción(es) multimedia. Debes reasignar o eliminar esas producciones primero.`
+            });
+        }
+
         const eliminada = await productoraService.eliminarProductora(id);
 
         if (!eliminada) {
@@ -107,6 +117,13 @@ const eliminar = async (req, res) => {
             message: 'Productora eliminada de la base de datos correctamente'
         });
     } catch (error) {
+        if (error.name === 'SequelizeForeignKeyConstraintError') {
+            return res.status(409).json({
+                success: false,
+                message: 'No es posible eliminar esta productora porque está referenciada por producciones multimedia existentes.',
+                error: error.message
+            });
+        }
         console.error('Error al eliminar productora:', error);
         res.status(500).json({
             success: false,

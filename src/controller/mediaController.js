@@ -1,4 +1,6 @@
 const mediaService = require('../services/mediaService');
+const Media = require('../models/media');
+const { Op } = require('sequelize');
 
 const listar = async (req, res) => {
     try {
@@ -52,6 +54,15 @@ const crear = async (req, res) => {
     }
 
     try {
+        // Validar unicidad del serial antes de insertar
+        const serialExistente = await Media.findOne({ where: { serial: serial.trim() } });
+        if (serialExistente) {
+            return res.status(400).json({
+                success: false,
+                message: `El serial "${serial.trim()}" ya está registrado en la producción "${serialExistente.titulo}". El serial debe ser único.`
+            });
+        }
+
         const nuevaMedia = await mediaService.crearMedia({
             serial,
             titulo,
@@ -75,7 +86,7 @@ const crear = async (req, res) => {
         if (error.name === 'SequelizeUniqueConstraintError') {
             return res.status(400).json({
                 success: false,
-                message: 'Ya existe una producción (media) con ese serial o url único',
+                message: 'Ya existe una producción registrada con ese serial único.',
                 error: error.message
             });
         }
@@ -110,6 +121,20 @@ const actualizar = async (req, res) => {
     }
 
     try {
+        // Validar unicidad del serial excluyendo el registro que se está editando
+        const serialExistente = await Media.findOne({
+            where: {
+                serial: serial.trim(),
+                id: { [Op.ne]: id }
+            }
+        });
+        if (serialExistente) {
+            return res.status(400).json({
+                success: false,
+                message: `El serial "${serial.trim()}" ya está registrado en otra producción ("${serialExistente.titulo}"). El serial debe ser único.`
+            });
+        }
+
         const mediaActualizada = await mediaService.actualizarMedia(id, {
             serial,
             titulo,
@@ -140,7 +165,7 @@ const actualizar = async (req, res) => {
         if (error.name === 'SequelizeUniqueConstraintError') {
             return res.status(400).json({
                 success: false,
-                message: 'Ya existe una producción (media) con ese serial o url único',
+                message: 'Ya existe una producción registrada con ese serial único.',
                 error: error.message
             });
         }

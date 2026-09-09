@@ -1,4 +1,5 @@
 const directorService = require('../services/directorService');
+const Media = require('../models/media');
 
 const listar = async (req, res) => {
     try {
@@ -91,6 +92,15 @@ const eliminar = async (req, res) => {
     const { id } = req.params;
 
     try {
+        // Verificar si existen producciones asociadas a este director antes de eliminar
+        const asociados = await Media.count({ where: { director_id: id } });
+        if (asociados > 0) {
+            return res.status(409).json({
+                success: false,
+                message: `No es posible eliminar este director porque está asociado a ${asociados} producción(es) multimedia. Debes reasignar o eliminar esas producciones primero.`
+            });
+        }
+
         const eliminado = await directorService.eliminarDirector(id);
 
         if (!eliminado) {
@@ -105,6 +115,13 @@ const eliminar = async (req, res) => {
             message: 'Director eliminado de la base de datos correctamente'
         });
     } catch (error) {
+        if (error.name === 'SequelizeForeignKeyConstraintError') {
+            return res.status(409).json({
+                success: false,
+                message: 'No es posible eliminar este director porque está referenciado por producciones multimedia existentes.',
+                error: error.message
+            });
+        }
         console.error('Error al eliminar director:', error);
         res.status(500).json({
             success: false,
